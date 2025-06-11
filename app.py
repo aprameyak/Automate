@@ -2,12 +2,18 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import os
+import boto3
 from twilio.rest import Client
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
 load_dotenv()
 
+# AWS Configuration
+S3_BUCKET = os.getenv("S3_BUCKET")
+S3_KEY = "last_known_data.json"
+
+# API Configuration
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
@@ -15,12 +21,15 @@ MY_PHONE_NUMBER = os.getenv("MY_PHONE_NUMBER")
 
 SIMPLIFY_INTERNSHIPS_README_URL = "https://raw.githubusercontent.com/SimplifyJobs/Summer2025-Internships/main/README.md"
 MLH_HACKATHONS_URL = "https://mlh.io/hackathons/events"
-LAST_KNOWN_DATA_FILE = "last_known_data.json"
+
+def get_s3_client():
+    """Returns an S3 client with Lambda execution role."""
+    return boto3.client('s3')
 
 def send_sms(message):
     """Sends an SMS message using Twilio."""
     if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, MY_PHONE_NUMBER]):
-        print("Twilio credentials or phone numbers not fully configured in .env. Skipping SMS.")
+        print("Twilio credentials or phone numbers not fully configured. Skipping SMS.")
         return False
     
     try:
@@ -37,18 +46,30 @@ def send_sms(message):
         return False
 
 def load_last_known_data():
-    if os.path.exists(LAST_KNOWN_DATA_FILE):
-        with open(LAST_KNOWN_DATA_FILE, 'r') as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                print("Error decoding last_known_data.json. Starting fresh.")
-                return {}
-    return {}
+    """Loads the last known data from S3."""
+    s3 = get_s3_client()
+    try:
+        response = s3.get_object(Bucket=S3_BUCKET, Key=S3_KEY)
+        return json.loads(response['Body'].read().decode('utf-8'))
+    except s3.exceptions.NoSuchKey:
+        print("No existing data found in S3. Starting fresh.")
+        return {}
+    except Exception as e:
+        print(f"Error loading data from S3: {e}")
+        return {}
 
 def save_current_data(data):
-    with open(LAST_KNOWN_DATA_FILE, 'w') as f:
-        json.dump(data, f, indent=4)
+    """Saves the current data to S3."""
+    s3 = get_s3_client()
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=S3_KEY,
+            Body=json.dumps(data, indent=4),
+            ContentType='application/json'
+        )
+    except Exception as e:
+        print(f"Error saving data to S3: {e}")
 
 def fetch_simplify_internships():
     """Fetches and parses internships from SimplifyJobs GitHub README."""
@@ -157,8 +178,9 @@ def fetch_mlh_hackathons():
         print(f"Error parsing MLH hackathons HTML: {e}")
         return []
 
-def main():
-    print("--- Starting Automation Script ---")
+def process_opportunities():
+    """Main processing function for Lambda."""
+    print("--- Starting Processing ---")
     
     all_current_postings = []
     all_current_postings.extend(fetch_simplify_internships())
@@ -189,6 +211,29 @@ def main():
         send_sms(notification_message)
     else:
         print("No new openings or hackathons found today.")
+    
+    # Save current data for next run
+    save_current_data(current_posting_ids)
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'message': 'Processing completed successfully',
+            'new_postings_count': len(new_postings)
+        })
+    }
+
+def lambda_handler(event, context):
+    """AWS Lambda handler function."""
+    try:
+        return process_opportunities()
+    except Exception as e:
+        print(f"Error in lambda execution: {e}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({
+                'error': str(e)
+            })
+        }
 
 if __name__ == "__main__":
     main()
