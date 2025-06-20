@@ -31,6 +31,10 @@ ENV/
 *.swp
 *.swo
 
+# AWS SAM
+.aws-sam/
+.env
+
 # OS
 .DS_Store
 .DS_Store?

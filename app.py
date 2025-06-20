@@ -213,7 +213,7 @@ def process_opportunities():
         print("No new openings or hackathons found today.")
     
     # Save current data for next run
-    save_current_data(current_posting_ids)
+    save_current_data(list(current_posting_ids))
     return {
         'statusCode': 200,
         'body': json.dumps({

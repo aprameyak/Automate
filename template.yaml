@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Opportunity Tracker Lambda
+
+Resources:
+  OpportunityTrackerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      CodeUri: .
+      MemorySize: 256
+      Timeout: 300
+      Environment:
+        Variables:
+          S3_BUCKET: "tracker_bucket"
+          TWILIO_ACCOUNT_SID: "AC23d21d945ade8618e8336ee10105b934"
+          TWILIO_AUTH_TOKEN: "1cf60ebf449803599dabef2d13a26ad6"
+          TWILIO_PHONE_NUMBER: "+18777804236"
+          MY_PHONE_NUMBER: "+16094559103"
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+            Resource: arn:aws:s3:::tracker_bucket/*
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day) 
