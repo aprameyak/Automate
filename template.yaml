@@ -13,11 +13,11 @@ Resources:
       Timeout: 300
       Environment:
         Variables:
-          S3_BUCKET: "tracker_bucket"
-          TWILIO_ACCOUNT_SID: "AC23d21d945ade8618e8336ee10105b934"
-          TWILIO_AUTH_TOKEN: "1cf60ebf449803599dabef2d13a26ad6"
-          TWILIO_PHONE_NUMBER: "+18777804236"
-          MY_PHONE_NUMBER: "+16094559103"
+          S3_BUCKET: <BUCKET_NAME>
+          TWILIO_ACCOUNT_SID: <ACCOUNT_SID>
+          TWILIO_AUTH_TOKEN: <AUTH_TOKEN>
+          TWILIO_PHONE_NUMBER: <TWILIO_NUMBER>
+          MY_PHONE_NUMBER: <PHONE_NUMBER>
       Policies:
         - AWSLambdaBasicExecutionRole
         - Statement:
@@ -25,7 +25,7 @@ Resources:
             Action:
               - s3:GetObject
               - s3:PutObject
-            Resource: arn:aws:s3:::tracker_bucket/*
+            Resource: arn:aws:s3:::<BUCKET_NAME>/*
       Events:
         DailySchedule:
           Type: Schedule
